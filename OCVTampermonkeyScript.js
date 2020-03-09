@@ -17,7 +17,8 @@ var inline_src = (<><![CDATA[
 
 // Bug1, the first review shortcut review save button not working
 
- "use strict";
+"use strict";
+
 var reivewNotesTime = "6";
 var reviewNotesSectionSelector =
   "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.clean-tabs > span:nth-child(5) > a";
@@ -27,17 +28,23 @@ var myFeedbackLinkSelector =
   "body > div:nth-child(49) > div > div:nth-child(1) > div > div > table > tbody > tr > td:nth-child(3) > div > span:nth-child(2) > ul > li:nth-child(3) > a";
 var notesTextAreaSelector =
   "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.tab-content > div > div:nth-child(1) > textarea";
+var userNameSelector =
+  "body > div:nth-child(49) > div > div:nth-child(1) > div > div > table > tbody > tr > td:nth-child(3) > div > span:nth-child(2) > a > span.navbar-current-user";
+
 var reviewNotesSaveBtn;
 var reviewNotesSection;
 var MIN = 5;
 var MAX = 6;
 
-function formateDate() {
+function formateDate(splitor) {
+  splitor = splitor || "/";
   var date = new Date();
   var year = date.getFullYear();
-  var month = date.getMonth();
+  var month = date.getMonth() + 1;
   var day = date.getDate();
-  return `${year}/${month + 1}/${day}`;
+  return `${year}${splitor}${month < 10 ? "0" + month : month}${splitor}${
+    day < 10 ? "0" + day : day
+  }`;
 }
 
 function getAlias() {
@@ -50,7 +57,7 @@ function getAlias() {
 function getRandomIntInclusive(min, max) {
   min = Math.ceil(min);
   max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min + 1)) + min; //含最大值，含最小值 
+  return Math.floor(Math.random() * (max - min + 1)) + min; //含最大值，含最小值
 }
 
 function reviewCase() {
@@ -60,15 +67,38 @@ function reviewCase() {
   });
 }
 
+// Add util tool element in the page
+function addUtilTool() {
+  $(document).arrive(userNameSelector, { onceOnly: true }, function() {
+    console.log("Add util tool to the page");
+    var userNameEle = $(this)[0];
+    userNameEle.onclick = function(e) {
+      e.stopPropagation();
+    }
+    var myDailReviewedURL = `https://ocv.microsoft.com/#/discover/?searchtype=OcvItems&relDateType=month&offset=-3&q=(Product:"SharePoint" OR Product:"OneDrive for Business" OR Product:"Outlook" OR Product:"Azure AD") AND (OcvAreas:(SetDate:${formateDate(
+      "-"
+    )} AND (SetBy:"${getAlias()}")))&allAreas`;
+    var ultilHTML = `<div id='util-container' style="position: fixed; top: 90px; right: 20px; overflow: hidden; z-index: 9999">
+                    <div class="daily-reviewed">
+                      <a href=${encodeURI(
+                        myDailReviewedURL
+                      )} target='_blank' style="background-color: #005A9E; color: white; display: inline-block;">DailyReviewed</a>
+                    </div>
+                  </div>`;
+    userNameEle.insertAdjacentHTML("beforeend", ultilHTML);
+  });
+}
+
 // Waiting for reivew notes section element loaded
 $(document).arrive(reviewNotesSectionSelector, function() {
-  console.log("init the ocv review notes auto fill tool...")
+  console.log("init the ocv review notes auto fill tool...");
   init();
 });
 
 function init() {
   var alias = getAlias();
   var date = formateDate();
+
   // Get the elements
   var triagingSuggestionsList = document
     .querySelector("div.header-bar > span")
@@ -76,13 +106,12 @@ function init() {
   var issuesText = triagingSuggestionsList[triagingSuggestionsList.length - 1];
 
   reviewNotesSection = document.querySelector(reviewNotesSectionSelector);
-  reviewNotesSaveBtn = document.querySelector(reviewNotesSaveBtnSelector)
+  reviewNotesSaveBtn = document.querySelector(reviewNotesSaveBtnSelector);
   console.log("reviewNotesSection", reviewNotesSection);
-
 
   reviewNotesSection.onclick = function(e) {
     e.stopPropagation();
-    reivewNotesTime = getRandomIntInclusive(MIN, MAX)
+    reivewNotesTime = getRandomIntInclusive(MIN, MAX);
     // Waiting for the review notes save button element loaded
     $(document).arrive(reviewNotesSaveBtnSelector, function() {
       reviewNotesSaveBtn = $(this);
@@ -105,14 +134,14 @@ function init() {
     if (e.keyCode === 82) {
       reviewCase().then(() => {
         console.log("reivewNotesSaveBtn", reviewNotesSaveBtn);
-        console.log("review and save notes...")
+        console.log("review and save notes...");
         reviewNotesSaveBtn && reviewNotesSaveBtn[0].click();
       });
     }
   };
 }
 
-
+addUtilTool()
 
 
 ]]></>).toString();
