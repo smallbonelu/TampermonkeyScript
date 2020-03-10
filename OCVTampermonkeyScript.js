@@ -15,70 +15,92 @@
 
 var inline_src = (<><![CDATA[
 
-// Bug1, the first review shortcut review save button not working
+// Bug1 fixed, the first review shortcut review save button not working
 
 "use strict";
 
-var reivewNotesTime = "6";
-var reviewNotesSectionSelector =
+let notesAndTransSelector =
+  "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.clean-tabs > span:nth-child(1)";
+let reviewNotesSectionSelector =
   "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.clean-tabs > span:nth-child(5) > a";
-var reviewNotesSaveBtnSelector =
+let reviewNotesSaveBtnSelector =
   "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.tab-content > div > div.review-notes-section > button";
-var myFeedbackLinkSelector =
+let myFeedbackLinkSelector =
   "body > div:nth-child(49) > div > div:nth-child(1) > div > div > table > tbody > tr > td:nth-child(3) > div > span:nth-child(2) > ul > li:nth-child(3) > a";
-var notesTextAreaSelector =
+let notesTextAreaSelector =
   "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.tab-content > div > div:nth-child(1) > textarea";
-var userNameSelector =
+let userNameSelector =
   "body > div:nth-child(49) > div > div:nth-child(1) > div > div > table > tbody > tr > td:nth-child(3) > div > span:nth-child(2) > a > span.navbar-current-user";
+let savingCircleSelector =
+  "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.tab-content > div > div.review-notes-section > div.review-notes-saving-spinner";
+let updateTimeStampSelector =
+  "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.tab-content > div > div:nth-child(2)";
 
-var reviewNotesSaveBtn;
-var reviewNotesSection;
-var MIN = 5;
-var MAX = 6;
+let MIN = 5;
+let MAX = 6;
+let isShortcut = false;
 
 function formateDate(splitor) {
   splitor = splitor || "/";
-  var date = new Date();
-  var year = date.getFullYear();
-  var month = date.getMonth() + 1;
-  var day = date.getDate();
+  let date = new Date();
+  let year = date.getFullYear();
+  let month = date.getMonth() + 1;
+  let day = date.getDate();
   return `${year}${splitor}${month < 10 ? "0" + month : month}${splitor}${
     day < 10 ? "0" + day : day
   }`;
 }
 
 function getAlias() {
-  var myFeedbackLink = document.querySelector(myFeedbackLinkSelector);
-  var str = decodeURI(myFeedbackLink.href);
-  var alias = str.match(/([\w-]+)@[a-zA-Z_]+?\.[a-zA-Z]{2,3}/)[1];
+  let myFeedbackLink = document.querySelector(myFeedbackLinkSelector);
+  let str = decodeURI(myFeedbackLink.href);
+  let alias = str.match(/([\w-]+)@[a-zA-Z_]+?\.[a-zA-Z]{2,3}/)[1];
   return alias;
 }
 
 function getRandomIntInclusive(min, max) {
   min = Math.ceil(min);
   max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min + 1)) + min; //含最大值，含最小值
+  return Math.floor(Math.random() * (max - min + 1)) + min; //inlcude maximum and minimum value
 }
 
-function reviewCase() {
-  return new Promise(resolve => {
-    reviewNotesSection && reviewNotesSection.click();
-    resolve();
+
+function addNotes(node) {
+  return new Promise((resolve, reject) => {
+    let alias = getAlias();
+    let date = formateDate();
+    let reivewNotesTime = getRandomIntInclusive(MIN, MAX);
+    // Get the elements
+    let triagingSuggestionsList = document
+      .querySelector("div.header-bar > span")
+      .textContent.split(":");
+    let issuesText =
+      triagingSuggestionsList[triagingSuggestionsList.length - 1];
+    // Fill the reivew notes
+    if (node.value === "") {
+      let reviewNotes = `${date}, ${alias}, ${reivewNotesTime}:\n${alias}, ${issuesText}`;
+      node.value = reviewNotes;
+      node.dispatchEvent(new Event("change"));
+      resolve();
+    } else {
+      reject();
+    }
   });
 }
+
 
 // Add util tool element in the page
 function addUtilTool() {
   $(document).arrive(userNameSelector, { onceOnly: true }, function() {
     console.log("Add util tool to the page");
-    var userNameEle = $(this)[0];
+    let userNameEle = $(this)[0];
     userNameEle.onclick = function(e) {
       e.stopPropagation();
-    }
-    var myDailReviewedURL = `https://ocv.microsoft.com/#/discover/?searchtype=OcvItems&relDateType=month&offset=-3&q=(Product:"SharePoint" OR Product:"OneDrive for Business" OR Product:"Outlook" OR Product:"Azure AD") AND (OcvAreas:(SetDate:${formateDate(
+    };
+    let myDailReviewedURL = `https://ocv.microsoft.com/#/discover/?searchtype=OcvItems&relDateType=all&offset=0&q=(Product:"SharePoint" OR Product:"OneDrive for Business" OR Product:"Outlook" OR Product:"Azure AD") AND (OcvAreas:(SetDate:${formateDate(
       "-"
     )} AND (SetBy:"${getAlias()}")))&allAreas`;
-    var ultilHTML = `<div id='util-container' style="position: fixed; top: 90px; right: 20px; overflow: hidden; z-index: 9999">
+    let ultilHTML = `<div id='util-container' style="position: fixed; top: 90px; right: 20px; overflow: hidden; z-index: 9999">
                     <div class="daily-reviewed">
                       <a href=${encodeURI(
                         myDailReviewedURL
@@ -96,53 +118,35 @@ $(document).arrive(reviewNotesSectionSelector, function() {
 });
 
 function init() {
-  var alias = getAlias();
-  var date = formateDate();
-
-  // Get the elements
-  var triagingSuggestionsList = document
-    .querySelector("div.header-bar > span")
-    .textContent.split(":");
-  var issuesText = triagingSuggestionsList[triagingSuggestionsList.length - 1];
-
-  reviewNotesSection = document.querySelector(reviewNotesSectionSelector);
-  reviewNotesSaveBtn = document.querySelector(reviewNotesSaveBtnSelector);
+  isShortcut = false;
+  let notesAndTrans = document.querySelector(notesAndTransSelector);
+  let reviewNotesSection = document.querySelector(reviewNotesSectionSelector);
   console.log("reviewNotesSection", reviewNotesSection);
 
-  reviewNotesSection.onclick = function(e) {
-    e.stopPropagation();
-    reivewNotesTime = getRandomIntInclusive(MIN, MAX);
-    // Waiting for the review notes save button element loaded
-    $(document).arrive(reviewNotesSaveBtnSelector, function() {
-      reviewNotesSaveBtn = $(this);
-      var notesTextArea = document.querySelector(notesTextAreaSelector);
-
-      console.log("notestextArea", notesTextArea);
-
-      // Fill the reivew notes
-
-      if (notesTextArea.value === "") {
-        var reviewNotes = `${date}, ${alias}, ${reivewNotesTime}:\n${alias}, ${issuesText}`;
-        notesTextArea.value = reviewNotes;
-        notesTextArea.dispatchEvent(new Event("change"));
+ reviewNotesSection.onclick = function() {
+  // add watcher for the reviewNotesSaveBtn element getCreatedElement
+  $(document).arrive(reviewNotesSaveBtnSelector, function() {
+    let notesTextArea = document.querySelector(notesTextAreaSelector)
+    if (notesTextArea.value !== "") return
+    let reviewNotesSaveBtn = $(this)[0]
+    addNotes(notesTextArea).then(() => {
+      if(isShortcut) {
+        reviewNotesSaveBtn && reviewNotesSaveBtn.click();
       }
-    });
-  };
+    })
+  })
+ }
 
   // When press review shortcut key 'r', click the reivew notes section
   document.onkeyup = function(e) {
     if (e.keyCode === 82) {
-      reviewCase().then(() => {
-        console.log("reivewNotesSaveBtn", reviewNotesSaveBtn);
-        console.log("review and save notes...");
-        reviewNotesSaveBtn && reviewNotesSaveBtn[0].click();
-      });
+      isShortcut = true;
+      reviewNotesSection.click();
     }
   };
 }
 
-addUtilTool()
-
+addUtilTool();
 
 ]]></>).toString();
 var c = Babel.transform(inline_src, { presets: [ "es2015", "es2016" ] });
