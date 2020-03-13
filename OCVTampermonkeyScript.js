@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         OCV review case tool
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  shortcut for review case
 // @author       Bruce Lu
 // @include      https://ocv.microsoft.com/*
@@ -15,7 +15,6 @@
 
 var inline_src = (<><![CDATA[
 
-// Bug1 fixed, the first review shortcut review save button not working
 
 "use strict";
 
@@ -31,6 +30,8 @@ let notesTextAreaSelector =
   "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.tab-content > div > div:nth-child(1) > textarea";
 let userNameSelector =
   "body > div:nth-child(49) > div > div:nth-child(1) > div > div > table > tbody > tr > td:nth-child(3) > div > span:nth-child(2) > a > span.navbar-current-user";
+let issuesListSelector = 
+  "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div.item-details-key-details > div.fields-column > table > tbody > tr:nth-child(2) > td.field-value > tag-list-with-states > div > span > a:nth-child(1)"
 let savingCircleSelector =
   "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.tab-content > div > div.review-notes-section > div.review-notes-saving-spinner";
 let updateTimeStampSelector =
@@ -39,6 +40,8 @@ let updateTimeStampSelector =
 let MIN = 5;
 let MAX = 6;
 let isShortcut = false;
+let issuesStatusList;
+let reviewNotesSection;
 
 function formateDate(splitor) {
   splitor = splitor || "/";
@@ -63,6 +66,22 @@ function getRandomIntInclusive(min, max) {
   max = Math.floor(max);
   return Math.floor(Math.random() * (max - min + 1)) + min; //inlcude maximum and minimum value
 }
+
+function getIssuesStatus() {
+  let issuesListLink = document.querySelectorAll(issuesListSelector);
+  if (issuesListLink.length == 0) return;
+  let issuesStatusList = [];
+  issuesListLink.forEach((issue) => {
+    let issueText = issue.text.trim() || "";
+    let status = issue.title.trim() || "";
+    issuesStatusList.push({
+      "issue": issueText,
+      "status": status
+    })
+  })
+  return issuesStatusList;
+}
+
 
 
 function addNotes(node) {
@@ -111,6 +130,20 @@ function addUtilTool() {
   });
 }
 
+function reviewCase(e) {
+    if (e.keyCode === 82) {
+      // TODO: if triagging issues has been reviewed, function returned to avoid repeat reiview action.
+      let issuesStatus = getIssuesStatus();
+      let currentTriaggingIssue = issuesStatus[issuesStatus.length - 1]
+      if (currentTriaggingIssue.status.indexOf("Not Reviewed") === -1) {
+        e.preventDefault();
+        return
+      }
+      isShortcut = true;
+      reviewNotesSection.click();
+    }
+}
+
 // Waiting for reivew notes section element loaded
 $(document).arrive(reviewNotesSectionSelector, function() {
   console.log("init the ocv review notes auto fill tool...");
@@ -119,15 +152,19 @@ $(document).arrive(reviewNotesSectionSelector, function() {
 
 function init() {
   isShortcut = false;
+  // get the elements
   let notesAndTrans = document.querySelector(notesAndTransSelector);
-  let reviewNotesSection = document.querySelector(reviewNotesSectionSelector);
+  reviewNotesSection = document.querySelector(reviewNotesSectionSelector);
+
   console.log("reviewNotesSection", reviewNotesSection);
 
  reviewNotesSection.onclick = function() {
   // add watcher for the reviewNotesSaveBtn element getCreatedElement
   $(document).arrive(reviewNotesSaveBtnSelector, function() {
     let notesTextArea = document.querySelector(notesTextAreaSelector)
-    if (notesTextArea.value !== "") return
+    if (notesTextArea.value !== "") {
+      return
+    }
     let reviewNotesSaveBtn = $(this)[0]
     addNotes(notesTextArea).then(() => {
       if(isShortcut) {
@@ -138,12 +175,7 @@ function init() {
  }
 
   // When press review shortcut key 'r', click the reivew notes section
-  document.onkeyup = function(e) {
-    if (e.keyCode === 82) {
-      isShortcut = true;
-      reviewNotesSection.click();
-    }
-  };
+  document.onkeydown = reviewCase
 }
 
 addUtilTool();
