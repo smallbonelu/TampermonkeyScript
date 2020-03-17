@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         OCV review case tool
 // @namespace    http://tampermonkey.net/
-// @version      0.2
+// @version      0.3
 // @description  shortcut for review case
 // @author       Bruce Lu
 // @include      https://ocv.microsoft.com/*
 // @require      https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.18.2/babel.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/babel-polyfill/6.16.0/polyfill.js
-// @require      https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.4.1.min.js
+// @require      https://code.jquery.com/jquery-3.1.1.min.js
+// @require
 // @require      https://raw.githubusercontent.com/uzairfarooq/arrive/master/minified/arrive.min.js
 // @grant        none
 // ==/UserScript==
@@ -30,18 +31,27 @@ let notesTextAreaSelector =
   "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.tab-content > div > div:nth-child(1) > textarea";
 let userNameSelector =
   "body > div:nth-child(49) > div > div:nth-child(1) > div > div > table > tbody > tr > td:nth-child(3) > div > span:nth-child(2) > a > span.navbar-current-user";
-let issuesListSelector = 
+let issuesListSelector =
   "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div.item-details-key-details > div.fields-column > table > tbody > tr:nth-child(2) > td.field-value > tag-list-with-states > div > span > a:nth-child(1)"
 let savingCircleSelector =
   "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.tab-content > div > div.review-notes-section > div.review-notes-saving-spinner";
 let updateTimeStampSelector =
   "body > div:nth-child(49) > div > div.view-port > div > div.triage.container-fluid > div > div.item-detail-pane.col-xs-8 > div > item-details > div > div > div > div:nth-child(3) > div.tab-content > div > div:nth-child(2)";
 
-let MIN = 5;
-let MAX = 6;
+let MIN = 4;
+let MAX = 5;
 let isShortcut = false;
 let issuesStatusList;
 let reviewNotesSection;
+
+var style = document.createElement("style");
+style.type = "text/css";
+var text = document.createTextNode(`
+
+`);
+style.appendChild(text);
+var head = document.getElementsByTagName("head")[0];
+head.appendChild(style);
 
 function formateDate(splitor) {
   splitor = splitor || "/";
@@ -83,7 +93,6 @@ function getIssuesStatus() {
 }
 
 
-
 function addNotes(node) {
   return new Promise((resolve, reject) => {
     let alias = getAlias();
@@ -107,28 +116,45 @@ function addNotes(node) {
   });
 }
 
+function changeReviewNotesTime(e) {
+  e.stopPropagation()
+  const timeController = document.getElementById("notes-time-controller")
+  MIN = document.getElementById("min-time").value || MIN;
+  MAX = document.getElementById("max-time").value || MAX;
+  alert(`Notes time has changed between ${MIN} - ${MAX} `)
+}
+
 
 // Add util tool element in the page
 function addUtilTool() {
   $(document).arrive(userNameSelector, { onceOnly: true }, function() {
     console.log("Add util tool to the page");
     let userNameEle = $(this)[0];
-    userNameEle.onclick = function(e) {
-      e.stopPropagation();
-    };
+
     let myDailReviewedURL = `https://ocv.microsoft.com/#/discover/?searchtype=OcvItems&relDateType=all&offset=0&q=(Product:"SharePoint" OR Product:"OneDrive for Business" OR Product:"Outlook" OR Product:"Azure AD") AND (OcvAreas:(SetDate:${formateDate(
       "-"
     )} AND (SetBy:"${getAlias()}")))&allAreas`;
-    let ultilHTML = `<div id='util-container' style="position: fixed; top: 90px; right: 20px; overflow: hidden; z-index: 9999">
-                    <div class="daily-reviewed">
-                      <a href=${encodeURI(
-                        myDailReviewedURL
-                      )} target='_blank' style="background-color: #005A9E; color: white; display: inline-block;">DailyReviewed</a>
-                    </div>
-                  </div>`;
+    let ultilHTML = `
+<div id='util-container' style="position: fixed; width: 250px; top: 90px; right: 20px; overflow: hidden; z-index: 9999">
+	<div class="daily-reviewed">
+		<a href=${encodeURI( myDailReviewedURL )} target='_blank' onclick="event.stopPropagation();"
+			style="background-color: #005A9E; color: white; display: inline-block;">DailyReviewed</a>
+	</div>
+	<div id="notes-time-controller">
+    <div>Notes Time</div>
+		<input type="number" name="min" class="form-control" id="min-time" onclick="event.stopPropagation();" placeholder="min" style="display: inline; width: 30%;">
+		<input type="number" name="max" class="form-control" id="max-time" onclick="event.stopPropagation();" placeholder="max" style="display: inline; width: 30%;">
+		<button type="button" class="btn btn-primary" id="apply-btn">Apply</button>
+	</div>
+</div>
+
+    `;
     userNameEle.insertAdjacentHTML("beforeend", ultilHTML);
+    let applyBtn = document.getElementById("apply-btn");
+    applyBtn.addEventListener("click", changeReviewNotesTime)
   });
 }
+
 
 function reviewCase(e) {
     if (e.keyCode === 82) {
@@ -163,6 +189,7 @@ function init() {
   $(document).arrive(reviewNotesSaveBtnSelector, function() {
     let notesTextArea = document.querySelector(notesTextAreaSelector)
     if (notesTextArea.value !== "") {
+      //document.removeEventListener('keydown', reviewCase)
       return
     }
     let reviewNotesSaveBtn = $(this)[0]
@@ -170,6 +197,7 @@ function init() {
       if(isShortcut) {
         reviewNotesSaveBtn && reviewNotesSaveBtn.click();
       }
+      //document.removeEventListener('keydown', reviewCase)
     })
   })
  }
